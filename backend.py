@@ -1,44 +1,47 @@
 import psycopg2
+import os
 
-connection = None
-cursor = None
-#Connecting to PostgreSQL
+# Use the Supabase Database URL you copied from the dashboard
+DATABASE_URL = "postgresql://postgres.uczrcjrxhmiwpkpolywj:Supabase%40123@aws-0-ap-south-1.pooler.supabase.com:6543/postgres"
+
 try:
-    connection = psycopg2.connect(
-        database="users",  
-        user="postgres",      
-        password="password",  
-        host="localhost",     
-        port="5432"        
-    )
-    print("Connected to the database!")
+    # Connect to the PostgreSQL database
+    conn = psycopg2.connect(DATABASE_URL)
+    print("Connected to the database successfully!")
 
-    cursor = connection.cursor()
+    # Create a cursor object
+    cursor = conn.cursor()
 
-    insert_query = """
-    INSERT INTO user_credentials (username, password)
-    VALUES (%s, %s);
-    """
-    user_data = ("alice", "password123") 
-    cursor.execute(insert_query, user_data)
+    # Example: Create a table if it doesn't exist
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS messages (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(50),
+            message TEXT
+        );
+    ''')
+    print("Table created successfully (if it didn't exist already).")
 
-    #Commit transaction
-    connection.commit()
-    print("User inserted successfully!")
+    # Example: Insert data into the table
+    cursor.execute('''
+        INSERT INTO messages (username, message) VALUES (%s, %s);
+    ''', ("Alice", "Hello from Supabase!"))
+    print("Data inserted successfully.")
+    
+    # Commit changes
+    conn.commit()
 
-    # Retrieve all users to verify the insertion
-    cursor.execute("SELECT * FROM user_credentials;")
-    users = cursor.fetchall()
-    print("Users in the database:")
-    for user in users:
-        print(user)
+    # Example: Fetch and display data
+    cursor.execute('SELECT * FROM messages;')
+    rows = cursor.fetchall()
+    for row in rows:
+        print(f"ID: {row[0]}, Username: {row[1]}, Message: {row[2]}")
 
 except Exception as e:
-    print(f"An error occurred: {e}")
-
+    print("An error occurred:", e)
 finally:
-    if cursor:
+    # Close the connection
+    if conn:
         cursor.close()
-    if connection:
-        connection.close()
-    print("Database connection closed.")
+        conn.close()
+        print("Database connection closed.")
