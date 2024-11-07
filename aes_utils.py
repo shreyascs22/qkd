@@ -1,39 +1,41 @@
+# aes_encryption.py
 from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytes
+from Crypto.Util.Padding import pad, unpad
+import hashlib
+from qkd import perform_qkd
 
-# Function to encrypt a message
+def get_aes_key_from_shared_key(shared_key):
+    """Generate a 256-bit AES key from the shared QKD key."""
+    return hashlib.sha256(shared_key.encode()).digest()
+
 def encrypt_message(key, message):
-    """
-    Encrypts a message using AES in EAX mode with the given key.
+    """Encrypt a message using AES encryption (ECB mode)."""
+    cipher = AES.new(key, AES.MODE_ECB)
+    ciphertext = cipher.encrypt(pad(message.encode(), AES.block_size))
+    return ciphertext
 
-    Args:
-        key (bytes): AES encryption key (must be 16, 24, or 32 bytes).
-        message (str): The plaintext message to encrypt.
+def decrypt_message(key, ciphertext):
+    """Decrypt a message using AES decryption (ECB mode)."""
+    cipher = AES.new(key, AES.MODE_ECB)
+    plaintext = unpad(cipher.decrypt(ciphertext), AES.block_size)
+    return plaintext.decode()
 
-    Returns:
-        tuple: Contains the nonce, ciphertext, and authentication tag.
-    """
-    cipher = AES.new(key, AES.MODE_EAX)
-    nonce = cipher.nonce  # This is required for decryption
-    ciphertext, tag = cipher.encrypt_and_digest(message.encode())  # Encrypt and generate tag
+# Example usage:
 
-    return nonce, ciphertext, tag
+# Obtain shared key from QKD (simulated by the function)
+shared_key = perform_qkd()
 
-# Function to decrypt a message
-def decrypt_message(key, nonce, ciphertext, tag):
-    """
-    Decrypts a message encrypted with AES in EAX mode.
+# Generate AES key from shared QKD key
+aes_key = get_aes_key_from_shared_key(shared_key)
+print(shared_key, aes_key)
 
-    Args:
-        key (bytes): AES decryption key (must be the same key used for encryption).
-        nonce (bytes): The nonce used during encryption.
-        ciphertext (bytes): The encrypted message.
-        tag (bytes): The authentication tag generated during encryption.
+message = "Hello, this is a test message!"
 
-    Returns:
-        str: The decrypted plaintext message.
-    """
-    cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
-    decrypted_message = cipher.decrypt_and_verify(ciphertext, tag)  # Decrypt and verify the message
+# Encrypt the message
+ciphertext = encrypt_message(aes_key, message)
+print(ciphertext)
+print("Encrypted (hex):", ciphertext.hex())
 
-    return decrypted_message.decode()  # Convert from bytes to string
+# Decrypt the message
+decrypted_message = decrypt_message(aes_key, ciphertext)
+print("Decrypted:", decrypted_message)
