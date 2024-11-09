@@ -5,10 +5,9 @@ from Crypto.Util.Padding import pad, unpad
 import hashlib
 import os
 
-listen_ip = "127.0.0.1"
-listen_port = 12346  # Port Bob listens on
-peer_ip = "127.0.0.1"
-peer_port = 12345  # Port Alice listens on
+# Ports and passwords for each user
+ports = {"Alice": 12345, "Bob": 12346, "Tom": 12347, "David": 12348}
+pwds = {"Alice": 123, "Bob": 234, "Tom": 345, "David": 456}
 
 # AES key setup
 def get_aes_key():
@@ -16,6 +15,7 @@ def get_aes_key():
     return hashlib.sha256("sharedsecretkey".encode()).digest()
 
 aes_key = get_aes_key()
+stop_event = threading.Event()  # Event to signal the thread to stop
 
 # AES encryption
 def encrypt_message(key, message):
@@ -33,17 +33,21 @@ def decrypt_message(key, data):
 
 def receive_message():
     receiver_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    receiver_socket.bind((listen_ip, listen_port))
+    receiver_socket.bind(("127.0.0.1", ports[uname]))
     receiver_socket.listen(1)
-    print(f"Alice listening for incoming messages on {listen_ip}:{listen_port}")
-    while True:
-        conn, addr = receiver_socket.accept()
-        data = conn.recv(1024)
-        if data:
-            decrypted_message = decrypt_message(aes_key, data)
-            print(f"Alice received: {decrypted_message}")
-            print(f"MESSAGE : {decrypted_message}")
-        conn.close()
+    print(f"{uname} listening for incoming messages on 127.0.0.1:{ports[uname]}")
+    while not stop_event.is_set():  # Run until stop_event is set
+        receiver_socket.settimeout(1.0)  # Prevent blocking indefinitely
+        try:
+            conn, addr = receiver_socket.accept()
+            data = conn.recv(1024)
+            if data:
+                decrypted_message = decrypt_message(aes_key, data)
+                print(f"{uname} received: {decrypted_message}")
+            conn.close()
+        except socket.timeout:
+            continue
+    receiver_socket.close()
 
 def send_message(peer_ip, peer_port, message):
     sender_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -53,13 +57,27 @@ def send_message(peer_ip, peer_port, message):
     sender_socket.close()
 
 def main():
-    threading.Thread(target=receive_message).start()
+    receive_thread = threading.Thread(target=receive_message)
+    receive_thread.start()
+    
     while True:
         message = input()
         if message.lower() == "exit":
             print("Exiting chat.")
+            stop_event.set()  # Signal the receive thread to stop
             break
-        send_message(peer_ip, peer_port, message)
+        send_message("127.0.0.1", ports[receiver_name], message)
+    
+    receive_thread.join()  # Wait for the receive thread to finish
 
 if __name__ == "__main__":
-    main()
+    uname = input("Enter username : ")
+    pwd = int(input("Enter password : "))
+    if (uname in pwds.keys()) and (pwd == pwds[uname]):
+        receiver_name = input("Enter receiver name : ")
+        if receiver_name in pwds:
+            main()
+        else:
+            print("Receiver not in your contacts")
+    else:
+        print("Username or password was incorrect")
