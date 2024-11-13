@@ -3,19 +3,30 @@ import threading
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 import hashlib
+from qkd import perform_qkd
 import os
 
 # Ports and passwords for each user
 ports = {"Alice": 12345, "Bob": 12346, "Tom": 12347, "David": 12348}
 pwds = {"Alice": 123, "Bob": 234, "Tom": 345, "David": 456}
+stop_event = threading.Event()  # Event to signal the thread to stop
 
 # AES key setup
-def get_aes_key():
+def get_aes_key(shared_key):
     # Replace with an actual shared key in a secure setup
-    return hashlib.sha256("sharedsecretkey".encode()).digest()
+    return hashlib.sha256(shared_key.encode()).digest()
 
-aes_key = get_aes_key()
-stop_event = threading.Event()  # Event to signal the thread to stop
+if os.path.exists("sharedkey.txt"):
+    with open("sharedkey.txt",'r') as file:
+        shared_key = file.read()
+else:
+    with open("sharedkey.txt",'w') as file:
+        shared_key = perform_qkd()
+        file.write(shared_key)
+    with open("sharedkey.txt",'r') as file:
+        shared_key = file.read()
+
+aes_key = get_aes_key(shared_key)
 
 # AES encryption
 def encrypt_message(key, message):
@@ -63,6 +74,8 @@ def main():
     while True:
         message = input()
         if message.lower() == "exit":
+            if os.path.exists("sharedkey.txt"):
+                os.remove("sharedkey.txt")
             print("Exiting chat.")
             stop_event.set()  # Signal the receive thread to stop
             break

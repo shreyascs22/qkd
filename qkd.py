@@ -105,6 +105,5 @@ def perform_qkd(n_bits=100):
     # Generate shared key based on matching bases
     matching_indices = [i for i in range(n_bits) if alice_bases[i] == bob_bases[i]]
     shared_key = ''.join(str(bob_results[i]) for i in matching_indices)
-    return shared_key[:32]  # Return a 256-bit shared key for AES
-
+    return shared_key  # Return a 256-bit shared key for AES
 
